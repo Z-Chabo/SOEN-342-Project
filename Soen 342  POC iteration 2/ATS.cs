@@ -78,6 +78,46 @@ public class AppointmentService
         }
     }
 
+    // Dates are inclusive. Each selected weekday repeats throughout the range.
+    public List<Availability> CreateRepeatingAvailability(
+        int professionalId, DateTime startDate, DateTime endDate,
+        IEnumerable<DayOfWeek> daysOfWeek, TimeSpan startTime,
+        TimeSpan endTime, TimeSpan slotDuration)
+    {
+        if (professionalId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(professionalId));
+        if (endDate.Date < startDate.Date)
+            throw new ArgumentException("End date must not precede start date.", nameof(endDate));
+        ArgumentNullException.ThrowIfNull(daysOfWeek);
+        var days = daysOfWeek.ToHashSet();
+        if (days.Count == 0 || days.Any(day => !Enum.IsDefined(day)))
+            throw new ArgumentException("Select at least one valid weekday.", nameof(daysOfWeek));
+        if (startTime < TimeSpan.Zero || endTime >= TimeSpan.FromDays(1) || endTime <= startTime)
+            throw new ArgumentException("Daily times must be within one day, with end after start.");
+        if (slotDuration <= TimeSpan.Zero || (endTime - startTime).Ticks % slotDuration.Ticks != 0)
+            throw new ArgumentException("A positive slot duration must divide the daily time range exactly.", nameof(slotDuration));
+
+        var slots = new List<(DateTime Start, DateTime End)>();
+        for (var date = startDate.Date; ; date = date.AddDays(1))
+        {
+            if (days.Contains(date.DayOfWeek))
+                for (var time = startTime; time < endTime; time += slotDuration)
+                    slots.Add((date.Add(time), date.Add(time + slotDuration)));
+            if (date == endDate.Date)
+                break;
+        }
+
+        lock (sync)
+        {
+            // Check the whole schedule before saving so conflicts cannot leave a partial schedule.
+            if (slots.Any(slot => availabilities.Any(a =>
+                a.ProfessionalId == professionalId && slot.Start < a.End && slot.End > a.Start)))
+                throw new InvalidOperationException("The repeating schedule overlaps an existing slot.");
+
+            return slots.Select(slot => CreateAvailability(professionalId, slot.Start, slot.End)).ToList();
+        }
+    }
+
     // Use case 1: Search for Availability
     public List<DateTime> SearchAvailability(
         int professionalId, DateTime date)
@@ -163,10 +203,12 @@ public class Program
         int professionalId = 101;
         DateTime tomorrow = DateTime.Today.AddDays(1);
 
-        // Explicitly create tomorrow's slots for this demonstration.
-        for (int hour = 9; hour < 17; hour++)
-            service.CreateAvailability(professionalId,
-                tomorrow.AddHours(hour), tomorrow.AddHours(hour + 1));
+        // Repeat on tomorrow's weekday for the next four weeks.
+        var created = service.CreateRepeatingAvailability(
+            professionalId, tomorrow, tomorrow.AddDays(27),
+            new[] { tomorrow.DayOfWeek }, TimeSpan.FromHours(9),
+            TimeSpan.FromHours(12), TimeSpan.FromMinutes(30));
+        Console.WriteLine($"Created {created.Count} availability slots over four weeks.");
 
         // Direct Search Availability
         var slots = service.SearchAvailability(

@@ -7,6 +7,7 @@ internal static class Tests
 
     private static void Main()
     {
+        CheckRepeatingAvailability();
         var service = new AppointmentService(() => Today.AddHours(10));
         var tomorrow = Today.AddDays(1);
         Check(service.SearchAvailability(101, tomorrow).Count == 0, "Start with no availability");
@@ -58,6 +59,46 @@ internal static class Tests
         });
         Check(attempts.Count == 1, "Only one concurrent booking succeeds");
         Console.WriteLine("All appointment workflow checks passed.");
+    }
+
+    private static void CheckRepeatingAvailability()
+    {
+        var service = new AppointmentService(() => new DateTime(2026, 10, 31));
+        var first = new DateTime(2026, 11, 1);
+        var last = new DateTime(2026, 11, 30);
+        var monday = new[] { DayOfWeek.Monday };
+        var start = TimeSpan.FromHours(9);
+        var end = TimeSpan.FromHours(12);
+        var duration = TimeSpan.FromMinutes(30);
+        var slots = service.CreateRepeatingAvailability(101, first, last, monday, start, end, duration);
+        Check(slots.Count == 30 && slots.All(s => s.Start.DayOfWeek == DayOfWeek.Monday && s.End - s.Start == duration),
+            "Five Mondays with six half-hour slots each");
+        Check(slots.First().Start == first.AddDays(1).AddHours(9) && slots.Last().End == last.AddHours(12),
+            "Inclusive date range and daily boundaries");
+        Check(service.SearchAvailability(101, first.AddDays(2)).Count == 0, "No slots on unselected days");
+        service.BookAppointment(Patient, 101, slots[0].Start, BookingMethod.ByPhone);
+        Check(service.SearchAvailability(101, slots[0].Start.Date).Count == 5, "Book generated availability");
+
+        var multiple = service.CreateRepeatingAvailability(102, first, first.AddDays(6),
+            new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Monday }, start, end, TimeSpan.FromMinutes(45));
+        Check(multiple.Count == 8, "Multiple weekdays, duplicate weekdays and 45-minute slots");
+        Check(service.CreateRepeatingAvailability(103, first, first, monday, start, end, duration).Count == 0,
+            "No matching weekdays returns no slots");
+        Reject<ArgumentOutOfRangeException>(() => service.CreateRepeatingAvailability(0, first, last, monday, start, end, duration));
+        Reject<ArgumentException>(() => service.CreateRepeatingAvailability(103, last, first, monday, start, end, duration));
+        Reject<ArgumentNullException>(() => service.CreateRepeatingAvailability(103, first, last, null!, start, end, duration));
+        foreach (var days in new[] { Array.Empty<DayOfWeek>(), new[] { (DayOfWeek)7 } })
+            Reject<ArgumentException>(() => service.CreateRepeatingAvailability(103, first, last, days, start, end, duration));
+        foreach (var invalid in new[] { TimeSpan.Zero, TimeSpan.FromMinutes(-30), TimeSpan.FromMinutes(40), TimeSpan.FromHours(4) })
+            Reject<ArgumentException>(() => service.CreateRepeatingAvailability(103, first, last, monday, start, end, invalid));
+        Reject<ArgumentException>(() => service.CreateRepeatingAvailability(103, first, last, monday, end, start, duration));
+        Reject<ArgumentException>(() => service.CreateRepeatingAvailability(103, first, last, monday, TimeSpan.FromHours(-1), end, duration));
+        Reject<ArgumentException>(() => service.CreateRepeatingAvailability(103, first, last, monday, start, TimeSpan.FromHours(25), duration));
+
+        service.CreateAvailability(103, last.AddHours(10), last.AddHours(11));
+        Reject<InvalidOperationException>(() => service.CreateRepeatingAvailability(103, first, last, monday, start, end, duration));
+        Check(service.SearchAvailability(103, first.AddDays(1)).Count == 0 && service.SearchAvailability(103, last).Count == 1,
+            "Late conflict leaves the entire schedule unchanged");
     }
 
     private static void Check(bool condition, string description)
