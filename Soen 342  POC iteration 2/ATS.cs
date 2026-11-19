@@ -12,6 +12,8 @@ public class Program
             Console.WriteLine("1. Book an appointment");
             Console.WriteLine("2. Search for availability");
             Console.WriteLine("3. Create availability");
+            Console.WriteLine("4. Import from CSV");
+            Console.WriteLine("5. Export to CSV");
             Console.WriteLine("0. Exit");
             Console.Write("Choose an option: ");
 
@@ -26,6 +28,12 @@ public class Program
                     break;
                 case "3":
                     Console.WriteLine("you selected create availability");
+                    break;
+                case "4":
+                    Console.WriteLine("you selected import from csv");
+                    break;
+                case "5":
+                    Console.WriteLine("you selected export to csv");
                     break;
                 case "0":
                     Console.WriteLine("you selected exit");
