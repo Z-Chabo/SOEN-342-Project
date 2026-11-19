@@ -9,6 +9,26 @@ internal static class Tests
     {
         var service = new AppointmentService(() => Today.AddHours(10));
         var tomorrow = Today.AddDays(1);
+        Check(service.SearchAvailability(101, tomorrow).Count == 0, "Start with no availability");
+        Reject<InvalidOperationException>(() => service.BookAppointment(Patient, 101, tomorrow.AddHours(10), BookingMethod.InClinic));
+        foreach (var date in new[] { Today.AddDays(-1), Today, tomorrow })
+            foreach (var professionalId in new[] { 101, 102 })
+                for (int hour = 9; hour < 17; hour++)
+                    service.CreateAvailability(professionalId, date.AddHours(hour), date.AddHours(hour + 1));
+
+        Reject<ArgumentOutOfRangeException>(() => service.CreateAvailability(0, tomorrow, tomorrow.AddHours(1)));
+        Reject<ArgumentException>(() => service.CreateAvailability(101, tomorrow, tomorrow));
+        Reject<ArgumentException>(() => service.CreateAvailability(101, tomorrow.AddHours(1), tomorrow));
+        Reject<InvalidOperationException>(() => service.CreateAvailability(101, tomorrow.AddHours(9), tomorrow.AddHours(10)));
+        Reject<InvalidOperationException>(() => service.CreateAvailability(101, tomorrow.AddHours(8.5), tomorrow.AddHours(9.5)));
+        Reject<InvalidOperationException>(() => service.CreateAvailability(101, tomorrow.AddHours(8), tomorrow.AddHours(18)));
+
+        var shortSlot = service.CreateAvailability(103, tomorrow.AddHours(8), tomorrow.AddHours(8).AddMinutes(45));
+        var adjacent = service.CreateAvailability(103, shortSlot.End, tomorrow.AddHours(9).AddMinutes(15));
+        Check(shortSlot.Id != adjacent.Id && shortSlot.ProfessionalId == 103, "Unique availability IDs and professional");
+        Check(service.SearchAvailability(103, tomorrow).SequenceEqual(new[] { shortSlot.Start, adjacent.Start }), "Variable durations and adjacent slots");
+        service.BookAppointment(Patient, 103, adjacent.Start, BookingMethod.ByPhone);
+        Check(service.SearchAvailability(103, tomorrow).SequenceEqual(new[] { shortSlot.Start }), "Book a non-hourly slot");
         Check(service.SearchAvailability(101, tomorrow).Count == 8, "Eight hourly slots");
         Check(service.SearchAvailability(101, Today).First() == Today.AddHours(11), "Exclude elapsed slots");
         Check(service.SearchAvailability(101, Today.AddDays(-1)).Count == 0, "Exclude past dates");
