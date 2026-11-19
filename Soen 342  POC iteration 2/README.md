@@ -47,9 +47,10 @@ availabilityService.CreateRepeatingAvailability(
     TimeSpan.FromHours(12), TimeSpan.FromMinutes(30));
 ```
 
-Use the menu to create single or repeating availability, search for open slots,
-and book appointments. Times use the clinic computer's local time. A professional
-directory is not implemented yet.
+The console menu currently only prints "you selected ..." for each selection.
+The booking and availability services remain in separate files and are not
+connected to the menu. Service times use the clinic computer's local time.
+A professional directory is not implemented yet.
 
 Data is held in memory for one service instance and is lost when the application
 exits. Both booking methods follow the same availability rules. This iteration
@@ -64,8 +65,4 @@ does not include a graphical interface, database, cancellation, or authenticatio
 - `Services/AppointmentService.cs`: patient validation and appointment booking.
 - `Services/ScheduleState.cs`: shared in-memory data and synchronization for both
   services. Neither service contains console prompts.
-- `ConsoleUI/Actions/`: booking, availability search, and availability creation
-  menu handlers.
-- `ConsoleUI/ConsoleInput.cs`: shared required-text, positive-number, and
-  date/time input validation.
 - `tests/`: appointment service workflow checks.
