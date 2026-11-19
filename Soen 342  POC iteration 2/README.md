@@ -7,13 +7,14 @@ booking.
 - `Patient` identifies the patient.
 - `Appointment` stores the patient, professional ID, time, and booking method.
 - `BookingMethod` distinguishes `InClinic` and `ByPhone` bookings.
-- `AppointmentService` searches available slots and reserves an available slot.
+- `AvailabilityService` creates single or repeating slots and searches availability.
+- `AppointmentService` reserves an available slot using `AvailabilityService`.
   Booking checks and reservation occur under one lock to prevent two callers
   from reserving the same professional and time in a service instance.
 
 ## Run
 
-Requires the .NET 10 SDK. Run the demonstration with:
+Requires the .NET 10 SDK. Run the console menu with:
 
 ```powershell
 dotnet run --project ATS.csproj
@@ -40,16 +41,31 @@ no matching weekdays creates no slots.
 For example, Mondays in November with 30-minute slots from 09:00 to 12:00:
 
 ```csharp
-service.CreateRepeatingAvailability(
+availabilityService.CreateRepeatingAvailability(
     101, new DateTime(2026, 11, 1), new DateTime(2026, 11, 30),
     new[] { DayOfWeek.Monday }, TimeSpan.FromHours(9),
     TimeSpan.FromHours(12), TimeSpan.FromMinutes(30));
 ```
 
-The demo creates 30-minute slots from 09:00 to 12:00 on tomorrow's weekday
-for four weeks. Times use the clinic computer's local time. Monthly recurrence,
-CSV import/export, and a professional directory are not implemented yet.
+Use the menu to create single or repeating availability, search for open slots,
+and book appointments. Times use the clinic computer's local time. A professional
+directory is not implemented yet.
 
 Data is held in memory for one service instance and is lost when the application
 exits. Both booking methods follow the same availability rules. This iteration
-does not include a user interface, database, cancellation, or authentication.
+does not include a graphical interface, database, cancellation, or authentication.
+
+## Code organization
+
+- `ATS.cs`: application startup, menu dispatch, and shutdown.
+- `Models/`: one file per model or enum (`Patient`, `MedicalProfessional`,
+  `Availability`, `Appointment`, and `BookingMethod`).
+- `Services/AvailabilityService.cs`: single/repeating availability creation and search.
+- `Services/AppointmentService.cs`: patient validation and appointment booking.
+- `Services/ScheduleState.cs`: shared in-memory data and synchronization for both
+  services. Neither service contains console prompts.
+- `ConsoleUI/Actions/`: booking, availability search, and availability creation
+  menu handlers.
+- `ConsoleUI/ConsoleInput.cs`: shared required-text, positive-number, and
+  date/time input validation.
+- `tests/`: appointment service workflow checks.
