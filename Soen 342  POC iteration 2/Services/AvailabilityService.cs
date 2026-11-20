@@ -12,6 +12,29 @@ public class AvailabilityService
         this.now = now ?? (() => DateTime.Now);
     }
 
+    public Availability ImportAvailability(string firstName, string lastName, string title,
+        string specialty, DateTime start, DateTime end)
+    {
+        lock (State.Sync)
+        {
+            var professional = State.Professionals.FirstOrDefault(p =>
+                string.Equals(p.FirstName, firstName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.LastName, lastName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Title, title, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Specialty, specialty, StringComparison.OrdinalIgnoreCase));
+            bool isNew = professional is null;
+            professional ??= new MedicalProfessional
+            {
+                Id = Math.Max(State.Professionals.Select(p => p.Id).DefaultIfEmpty().Max(),
+                    State.Availabilities.Select(a => a.ProfessionalId).DefaultIfEmpty().Max()) + 1,
+                FirstName = firstName, LastName = lastName, Title = title, Specialty = specialty
+            };
+            var slot = CreateAvailability(professional.Id, start, end);
+            if (isNew) State.Professionals.Add(professional);
+            return slot;
+        }
+    }
+
     public Availability CreateAvailability(int professionalId, DateTime start, DateTime end)
     {
         if (professionalId <= 0)
