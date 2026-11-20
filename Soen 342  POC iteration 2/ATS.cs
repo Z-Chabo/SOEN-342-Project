@@ -34,7 +34,7 @@ public class Program
                     MakeAvailability(availabilityService);
                     break;
                 case "4":
-                    Console.WriteLine("you selected import from csv");
+                    CsvFile.importFromCSV(availabilityService);
                     break;
                 case "5":
                     Console.WriteLine("you selected export to csv");
@@ -47,7 +47,7 @@ public class Program
                     Console.WriteLine("Goodbye!");
                     return;
                 default:
-                    Console.WriteLine("Please choose an option from 0 to 3.");
+                    Console.WriteLine("Please choose an option from 0 to 5.");
                     break;
             }
         }
