@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Microsoft.VisualBasic.FileIO;
 
-public static class CsvFile
+public static class CsvImport
 {
     public static void importFromCSV(AvailabilityService service)
     {

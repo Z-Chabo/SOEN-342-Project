@@ -12,6 +12,15 @@ public class AvailabilityService
         this.now = now ?? (() => DateTime.Now);
     }
 
+    public List<(Availability Slot, MedicalProfessional? Professional)> GetAllAvailabilities()
+    {
+        lock (State.Sync)
+        {
+            return State.Availabilities.Select(slot =>
+                (slot, State.Professionals.FirstOrDefault(p => p.Id == slot.ProfessionalId))).ToList();
+        }
+    }
+
     public Availability ImportAvailability(string firstName, string lastName, string title,
         string specialty, DateTime start, DateTime end)
     {
