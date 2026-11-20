@@ -51,8 +51,15 @@ Use option 3 to enter a professional and create an individual availability slot
 or create a repeating schedule using a professional ID,
 or option 4 to import a CSV with columns
 `First Name,Last Name,Title,Specialty,Date,Start,End`.
-No sample file is loaded automatically. Options 1 and 2 let you select an
-entered/imported professional and search a date; option 1 also books a slot.
+CSV files are stored in `Data/` and copied beside the application when built.
+At the import prompt, enter just the file name, such as `future_availability.csv`
+or `professional_availability.csv`. Full paths are also accepted. To add another
+CSV, place it in `Data/` before running the application.
+No sample file is loaded automatically. Option 2 lists all future, unbooked slots
+grouped by professional, including their IDs, dates, and start/end times.
+Option 1 lists professionals with availability and lets you select a date to book
+a slot. Repeating schedules created using only an ID appear as `Professional ID: ...`
+when no name has been entered or imported for that ID.
 If the schedule is empty, the application directs you to option 3 or 4.
 Times use the clinic computer's local time. Option 5 exports availability to CSV.
 Monthly recurrence is not implemented yet. Weekly recurrence is available through

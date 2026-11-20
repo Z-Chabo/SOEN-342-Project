@@ -57,17 +57,22 @@ public static class CsvImport
     {
         while (true)
         {
-            Console.Write("Enter the source CSV file path: ");
+            Console.Write("Enter the CSV file name from Data (or a full path): ");
             string? input = Console.ReadLine();
             if (input is null) return null;
 
             if (string.IsNullOrWhiteSpace(input))
             {
-                Console.WriteLine("A file path is required.");
+                Console.WriteLine("A file name is required.");
                 continue;
             }
 
             string path = input.Trim().Trim('"');
+            if (Path.GetFileName(path) == path)
+            {
+                string dataPath = Path.Combine(AppContext.BaseDirectory, "Data", path);
+                if (File.Exists(dataPath)) path = dataPath;
+            }
             if (!File.Exists(path))
             {
                 Console.WriteLine($"File not found: {path}");

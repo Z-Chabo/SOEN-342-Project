@@ -25,10 +25,10 @@ public class Program
             switch (choice)
             {
                 case "1":
-                    RunAction(() => SearchOrBook(availabilityService, appointmentService, true));
+                    RunAction(() => BookAppointment(availabilityService, appointmentService));
                     break;
                 case "2":
-                    RunAction(() => SearchOrBook(availabilityService, appointmentService, false));
+                    RunAction(() => ShowAllAvailability(availabilityService));
                     break;
                 case "3":
                     RunAction(() => ChooseAvailabilityType(availabilityService));
@@ -135,16 +135,50 @@ public class Program
         Console.WriteLine("Availability created.");
     }
 
-    private static void SearchOrBook(AvailabilityService availability,
-        AppointmentService appointments, bool book)
+    private static void ShowAllAvailability(AvailabilityService service)
+    {
+        if (!HasAvailability(service)) return;
+
+        Console.WriteLine("\nFuture availability by professional:");
+        foreach (var group in service.GetAllAvailabilities()
+            .GroupBy(item => item.Slot.ProfessionalId).OrderBy(group => group.Key))
+        {
+            var professional = group.First().Professional;
+            Console.WriteLine(professional is null
+                ? $"\nProfessional ID: {group.Key}"
+                : $"\n{professional.Title} {professional.FirstName} {professional.LastName} ({professional.Specialty}) — ID: {group.Key}");
+
+            bool found = false;
+            foreach (var date in group.Select(item => item.Slot.Start.Date).Distinct().OrderBy(date => date))
+            {
+                var availableStarts = service.SearchAvailability(group.Key, date).ToHashSet();
+                foreach (var item in group.Where(item => availableStarts.Contains(item.Slot.Start))
+                    .OrderBy(item => item.Slot.Start))
+                {
+                    Console.WriteLine($"  {item.Slot.Start:yyyy-MM-dd HH:mm} - {item.Slot.End:yyyy-MM-dd HH:mm}");
+                    found = true;
+                }
+            }
+            if (!found) Console.WriteLine("  No future available slots.");
+        }
+    }
+
+    private static void BookAppointment(AvailabilityService availability,
+        AppointmentService appointments)
     {
         if (!HasAvailability(availability)) return;
 
-        var professionals = availability.State.Professionals.ToList();
+        var professionals = availability.GetAllAvailabilities()
+            .GroupBy(item => item.Slot.ProfessionalId)
+            .OrderBy(group => group.Key)
+            .Select(group => (Id: group.Key, Professional: group.First().Professional))
+            .ToList();
         for (int i = 0; i < professionals.Count; i++)
         {
-            var professional = professionals[i];
-            Console.WriteLine($"{i + 1}. {professional.Title} {professional.FirstName} {professional.LastName} ({professional.Specialty})");
+            var (id, professional) = professionals[i];
+            Console.WriteLine(professional is null
+                ? $"{i + 1}. Professional ID: {id}"
+                : $"{i + 1}. {professional.Title} {professional.FirstName} {professional.LastName} ({professional.Specialty}) - ID: {id}");
         }
         int professionalOption = int.Parse(ReadRequired("Choose a professional (option number): "));
         if (professionalOption < 1 || professionalOption > professionals.Count)
@@ -163,8 +197,6 @@ public class Program
                 a.ProfessionalId == professionalId && a.Start == slots[i]);
             Console.WriteLine($"{i + 1}. {slot.Start:HH:mm} - {slot.End:HH:mm}");
         }
-        if (!book) return;
-
         int selection = int.Parse(ReadRequired("Slot number: "));
         if (selection < 1 || selection > slots.Count)
             throw new ArgumentException("Select a slot from the list.");
