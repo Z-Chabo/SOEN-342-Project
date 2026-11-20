@@ -46,10 +46,19 @@ service.CreateRepeatingAvailability(
     TimeSpan.FromHours(12), TimeSpan.FromMinutes(30));
 ```
 
-The demo creates 30-minute slots from 09:00 to 12:00 on tomorrow's weekday
-for four weeks. Times use the clinic computer's local time. Monthly recurrence,
-CSV import/export, and a professional directory are not implemented yet.
+The application starts with no professionals, availabilities, or appointments.
+Use option 3 to enter a professional and create an individual availability slot
+or create a repeating schedule using a professional ID,
+or option 4 to import a CSV with columns
+`First Name,Last Name,Title,Specialty,Date,Start,End`.
+No sample file is loaded automatically. Options 1 and 2 let you select an
+entered/imported professional and search a date; option 1 also books a slot.
+If the schedule is empty, the application directs you to option 3 or 4.
+Times use the clinic computer's local time. Option 5 exports availability to CSV.
+Monthly recurrence is not implemented yet. Weekly recurrence is available through
+option 3 and the service API.
 
 Data is held in memory for one service instance and is lost when the application
 exits. Both booking methods follow the same availability rules. This iteration
-does not include a user interface, database, cancellation, or authentication.
+does not include a graphical user interface, database, appointment cancellation,
+or authentication.

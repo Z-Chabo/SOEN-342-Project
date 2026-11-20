@@ -6,7 +6,8 @@ public class Program
 {
     public static void Main()
     {
-        var availabilityService = new AvailabilityService();
+        AvailabilityService availabilityService = new();
+        AppointmentService appointmentService = new(availabilityService);
         Console.WriteLine("Welcome to Appointment Management.");
 
         while (true)
@@ -24,14 +25,13 @@ public class Program
             switch (choice)
             {
                 case "1":
-                    Console.WriteLine("you selected book an appointment");
+                    RunAction(() => SearchOrBook(availabilityService, appointmentService, true));
                     break;
                 case "2":
-                    Console.WriteLine("you selected search for availability");
+                    RunAction(() => SearchOrBook(availabilityService, appointmentService, false));
                     break;
                 case "3":
-                    Console.WriteLine("you selected create availability");
-                    MakeAvailability(availabilityService);
+                    RunAction(() => ChooseAvailabilityType(availabilityService));
                     break;
                 case "4":
                     CsvImport.importFromCSV(availabilityService);
@@ -53,55 +53,129 @@ public class Program
         }
     }
 
+    private static bool HasAvailability(AvailabilityService service)
+    {
+        if (service.State.Availabilities.Count > 0) return true;
+        Console.WriteLine("No availabilities exist. Create availability using option 3 or import from CSV using option 4.");
+        return false;
+    }
+
+    private static string ReadRequired(string prompt)
+    {
+        Console.Write(prompt);
+        string? value = Console.ReadLine();
+        if (value is null) throw new OperationCanceledException();
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("A value is required. Please try again.");
+        return value.Trim();
+    }
+
+    private static DateTime ReadDate() => DateTime.ParseExact(
+        ReadRequired("Date (yyyy-MM-dd): "), "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static TimeSpan ReadTime(string prompt) => DateTime.ParseExact(
+        ReadRequired(prompt + " (HH:mm): "), "HH:mm", CultureInfo.InvariantCulture).TimeOfDay;
+
+    private static void RunAction(Action action)
+    {
+        try { action(); }
+        catch (OperationCanceledException) { Console.WriteLine("Cancelled."); }
+        catch (Exception error) when (error is ArgumentException || error is FormatException ||
+            error is InvalidOperationException || error is OverflowException)
+        {
+            Console.WriteLine(error.Message);
+        }
+    }
+
+    private static void ChooseAvailabilityType(AvailabilityService service)
+    {
+        string choice = ReadRequired("Availability type (1 = individual slot, 2 = repeating schedule): ");
+        switch (choice)
+        {
+            case "1":
+                CreateAvailability(service);
+                break;
+            case "2":
+                MakeAvailability(service);
+                break;
+            default:
+                throw new ArgumentException("Select availability type 1 or 2.");
+        }
+    }
+
     private static void MakeAvailability(AvailabilityService service)
     {
-        try
+        int professionalId = int.Parse(ReadRequired("Professional ID: "));
+        DateTime startDate = DateTime.ParseExact(ReadRequired("Start date (yyyy-MM-dd): "),
+            "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        DateTime endDate = DateTime.ParseExact(ReadRequired("End date (yyyy-MM-dd): "),
+            "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        DayOfWeek[] days = ReadRequired("Weekdays (e.g. Monday,Wednesday): ").Split(',')
+            .Select(day => Enum.Parse<DayOfWeek>(day.Trim(), true)).ToArray();
+        TimeSpan startTime = ReadTime("Daily start time");
+        TimeSpan endTime = ReadTime("Daily end time");
+        int minutes = int.Parse(ReadRequired("Slot duration in minutes: "));
+        var slots = service.CreateRepeatingAvailability(professionalId, startDate, endDate,
+            days, startTime, endTime, TimeSpan.FromMinutes(minutes));
+        Console.WriteLine($"Created {slots.Count} availability slots.");
+        foreach (var slot in slots)
+            Console.WriteLine($"{slot.Start:yyyy-MM-dd HH:mm} - {slot.End:HH:mm}");
+    }
+
+    private static void CreateAvailability(AvailabilityService service)
+    {
+        string firstName = ReadRequired("Professional first name: ");
+        string lastName = ReadRequired("Professional last name: ");
+        string title = ReadRequired("Title: ");
+        string specialty = ReadRequired("Specialty: ");
+        DateTime date = ReadDate();
+        TimeSpan start = ReadTime("Start time");
+        TimeSpan end = ReadTime("End time");
+        service.ImportAvailability(firstName, lastName, title, specialty, date.Add(start), date.Add(end));
+        Console.WriteLine("Availability created.");
+    }
+
+    private static void SearchOrBook(AvailabilityService availability,
+        AppointmentService appointments, bool book)
+    {
+        if (!HasAvailability(availability)) return;
+
+        var professionals = availability.State.Professionals.ToList();
+        for (int i = 0; i < professionals.Count; i++)
         {
-            Console.Write("Professional ID: ");
-            int professionalId = int.Parse(Console.ReadLine()!);
-
-            Console.Write("Start date (yyyy-MM-dd): ");
-            DateTime startDate = DateTime.ParseExact(
-                Console.ReadLine()!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-            Console.Write("End date (yyyy-MM-dd): ");
-            DateTime endDate = DateTime.ParseExact(
-                Console.ReadLine()!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-            Console.Write("Weekdays (e.g. Monday,Wednesday): ");
-            string? weekdays = Console.ReadLine();
-            if (weekdays == null) return;
-            DayOfWeek[] days = weekdays.Split(',')
-                .Select(day => Enum.Parse<DayOfWeek>(day.Trim(), true))
-                .ToArray();
-
-            Console.Write("Daily start time (HH:mm): ");
-            TimeSpan startTime = TimeOnly.ParseExact(
-                Console.ReadLine()!, "HH:mm", CultureInfo.InvariantCulture).ToTimeSpan();
-
-            Console.Write("Daily end time (HH:mm): ");
-            TimeSpan endTime = TimeOnly.ParseExact(
-                Console.ReadLine()!, "HH:mm", CultureInfo.InvariantCulture).ToTimeSpan();
-
-            Console.Write("Slot duration in minutes: ");
-            int minutes = int.Parse(Console.ReadLine()!);
-
-            // Call the existing availability logic.
-            var slots = service.CreateRepeatingAvailability(
-                professionalId, startDate, endDate, days,
-                startTime, endTime, TimeSpan.FromMinutes(minutes));
-
-            Console.WriteLine($"Created {slots.Count} availability slots.");
-            foreach (var slot in slots)
-            {
-                Console.WriteLine($"{slot.Start:yyyy-MM-dd HH:mm} - {slot.End:HH:mm}");
-            }
+            var professional = professionals[i];
+            Console.WriteLine($"{i + 1}. {professional.Title} {professional.FirstName} {professional.LastName} ({professional.Specialty})");
         }
-        catch (Exception error) when (
-            error is FormatException || error is OverflowException ||
-            error is ArgumentException || error is InvalidOperationException)
+        int professionalOption = int.Parse(ReadRequired("Choose a professional (option number): "));
+        if (professionalOption < 1 || professionalOption > professionals.Count)
+            throw new ArgumentException("Select a valid option from the professional list.");
+        int professionalId = professionals[professionalOption - 1].Id;
+        DateTime date = ReadDate();
+        var slots = availability.SearchAvailability(professionalId, date);
+        if (slots.Count == 0)
         {
-            Console.WriteLine($"Could not create availability: {error.Message}");
+            Console.WriteLine("No available slots for this professional on this date. Try another date, create availability using option 3, or import from CSV using option 4.");
+            return;
         }
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var slot = availability.State.Availabilities.Single(a =>
+                a.ProfessionalId == professionalId && a.Start == slots[i]);
+            Console.WriteLine($"{i + 1}. {slot.Start:HH:mm} - {slot.End:HH:mm}");
+        }
+        if (!book) return;
+
+        int selection = int.Parse(ReadRequired("Slot number: "));
+        if (selection < 1 || selection > slots.Count)
+            throw new ArgumentException("Select a slot from the list.");
+        int patientId = int.Parse(ReadRequired("Patient ID: "));
+        string patientName = ReadRequired("Patient name: ");
+        string method = ReadRequired("Booking method (1 = in clinic, 2 = by phone): ");
+        if (method != "1" && method != "2")
+            throw new ArgumentException("Select booking method 1 or 2.");
+        var appointment = appointments.BookAppointment(
+            new Patient { Id = patientId, Name = patientName }, professionalId, slots[selection - 1],
+            method == "1" ? BookingMethod.InClinic : BookingMethod.ByPhone);
+        Console.WriteLine($"Appointment booked for {appointment.Patient.Name} at {appointment.DateTime:yyyy-MM-dd HH:mm}.");
     }
 }
