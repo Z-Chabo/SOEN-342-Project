@@ -31,10 +31,10 @@ public class Program
                     Console.WriteLine("you selected create availability");
                     break;
                 case "4":
-                    CsvFile.importFromCSV(availabilityService);
+                    CsvImport.importFromCSV(availabilityService);
                     break;
                 case "5":
-                    Console.WriteLine("you selected export to csv");
+                    CsvExport.exportToCSV(availabilityService);
                     break;
                 case "0":
                     Console.WriteLine("you selected exit");
